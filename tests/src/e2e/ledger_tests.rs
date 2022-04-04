@@ -993,8 +993,7 @@ fn proposal_submission() -> Result<()> {
     // 2. Submit valid proposal
     let valid_proposal_json_path =
         test.base_dir.path().join("valid_proposal.json");
-    let proposal_code = wasm_abs_path(TX_NO_OP_WASM);
-
+    let proposal_code = wasm_abs_path(VP_ALWAYS_TRUE_WASM);
     let albert = find_address(&test, ALBERT)?;
     let valid_proposal_json = json!(
         {
@@ -1010,10 +1009,10 @@ fn proposal_submission() -> Result<()> {
                 "requires": "2"
             },
             "author": albert,
-            "voting_start_epoch": 9,
-            "voting_end_epoch": 21,
-            "grace_epoch": 35,
-            "proposal_code_path": proposal_code.to_str().unwrap()
+            "voting_start_epoch": 3,
+            "voting_end_epoch": 9,
+            "grace_epoch": 15,
+            "proposal_code": proposal_code.to_str()
         }
     );
 
@@ -1263,6 +1262,17 @@ fn proposal_submission() -> Result<()> {
 
     let mut client = run!(test, Bin::Client, query_balance_args, Some(30))?;
     client.exp_string("XAN: 0")?;
+    client.assert_success();
+
+    // 14. Query parameters
+    let query_protocol_parameters = vec![
+        "query-protocol-parameters",
+        "--ledger-address",
+        &validator_one_rpc,
+    ];
+
+    let mut client = run!(test, Bin::Client, query_protocol_parameters, Some(30))?;
+    client.exp_string("Min. proposal grace epoch: 9")?;
     client.assert_success();
 
     Ok(())
