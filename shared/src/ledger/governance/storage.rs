@@ -478,10 +478,10 @@ pub fn get_commit_proposal_id(key: &Key) -> Option<u64> {
 }
 
 /// Get voter address from vote key
-pub fn get_address(key: &Key) -> Option<&Address> {
+pub fn get_address(key: &Key) -> Option<Address> {
     match key.get_at(4) {
         Some(addr) => match addr {
-            DbKeySeg::AddressSeg(res) => Some(res),
+            DbKeySeg::AddressSeg(res) => Some(res.clone()),
             DbKeySeg::StringSeg(_) => None,
         },
         None => None,

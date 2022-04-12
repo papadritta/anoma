@@ -119,13 +119,13 @@ where
                                 &self.ctx,
                                 pre_voting_start_epoch,
                                 verifiers,
-                                voter,
+                                &voter,
                             );
                             let is_validator = is_validator(
                                 &self.ctx,
                                 pre_voting_start_epoch,
                                 verifiers,
-                                voter,
+                                &voter,
                             );
                             let is_valid_validator_voting_period =
                                 is_valid_validator_voting_period(
