@@ -1574,8 +1574,7 @@ pub async fn get_votes(
             (HashMap::new(), HashMap::new()),
             |(mut validator_voters, mut delegator_voters), (key, vote)| {
                 let address = gov_storage::get_address(&key)
-                    .expect("Vote key should contains an address.")
-                    .clone();
+                    .expect("Vote key should contains an address.");
                 if active_validators.contains_key(&address) {
                     validator_voters.insert(address, vote);
                 } else {
@@ -1602,6 +1601,9 @@ pub async fn compute_tally(
     validator_voters: &HashMap<Address, ProposalVote>,
     active_validators: &[Address],
 ) -> TallyResult {
+    println!("val: {:?}", validator_voters);
+    println!("del: {:?}", delegator_voters);
+    println!("act: {:?}", active_validators);
     let mut bond_data: HashMap<Address, (Address, token::Amount)> =
         HashMap::new();
     for validator_addr in validator_voters.keys() {
@@ -1634,27 +1636,22 @@ pub async fn compute_tally(
     }
 
     let mut total_stacked_tokens = token::Amount::from(0);
+    for validator_addr in active_validators {
+        total_stacked_tokens +=
+            get_bond_amount_at(client, validator_addr, validator_addr, epoch)
+                .await
+                .expect("Validator self-bond must exist.");
+    }
 
     let mut yay_votes_tokens = token::Amount::whole(0);
     for (addr, vote) in validator_voters.clone() {
         if vote.is_yay() {
             yay_votes_tokens += bond_data.get(&addr).unwrap().1;
         }
-        let validator_total_deltas = pos::validator_total_deltas_key(&addr);
-        let epoched_validator_deltas = query_storage_value::<
-            pos::ValidatorTotalDeltas,
-        >(
-            client, &validator_total_deltas
-        )
-        .await
-        .expect("Validator delta should exist.");
-        let amount = epoched_validator_deltas.get(epoch).unwrap();
-
-        total_stacked_tokens += token::Amount::from_change(amount);
     }
 
     for (addr, vote) in delegator_voters {
-        if !bond_data.contains_key(&addr) {
+        if !bond_data.contains_key(addr) {
             if vote.is_yay() {
                 for validator_addr in active_validators {
                     if bond_data.contains_key(validator_addr) {
@@ -1674,10 +1671,10 @@ pub async fn compute_tally(
                 }
             }
         } else {
-            let delegator_data = bond_data.get(&addr).unwrap();
+            let delegator_data = bond_data.get(addr).unwrap();
             let validator_vote =
                 validator_voters.get(&delegator_data.0).unwrap();
-            if validator_vote.is_yay() && validator_vote.ne(&vote) {
+            if validator_vote.is_yay() && validator_vote.ne(vote) {
                 yay_votes_tokens -= delegator_data.1;
             } else {
                 yay_votes_tokens += delegator_data.1;
@@ -1685,12 +1682,14 @@ pub async fn compute_tally(
         }
     }
 
+    println!("yay: {}", yay_votes_tokens);
+    println!("total: {}", total_stacked_tokens);
+
     if 3 * yay_votes_tokens >= 2 * total_stacked_tokens {
         TallyResult::Passed
     } else {
         TallyResult::Rejected
     }
-    
 }
 
 pub async fn get_bond_amount_at(
