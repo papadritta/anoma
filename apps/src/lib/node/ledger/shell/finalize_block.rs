@@ -88,11 +88,11 @@ where
                                 TxType::Decrypted(DecryptedTx::Decrypted(tx));
                             let pending_execution_key =
                                 gov_storage::get_proposal_execution_key(id);
-                            // in order to filter if the vp has been triggered
-                            // by the protocol or by a transaction,
-                            // we set the following key in a protected storage
-                            // space as a flag. After the execution, we delete
-                            // it.
+                            // In order to authorize proposal code to perform
+                            // changes in validity predicates that allow
+                            // governance changes, we set the following key in a
+                            // protected storage space as a flag.
+                            // We MUST delete it after the execution.
                             self.storage
                                 .write(&pending_execution_key, "")
                                 .expect("Should be able to write to storage.");
@@ -111,6 +111,7 @@ where
                             match tx_result {
                                 Ok(tx_result) => {
                                     if tx_result.is_accepted() {
+                                        self.gas_meter.finalize_transaction().unwrap();
                                         self.write_log.commit_tx();
                                         let author_key =
                                             gov_storage::get_author_key(id);
@@ -160,6 +161,8 @@ where
                                             .events
                                             .push(proposal_event.into());
                                     } else {
+                                        self.gas_meter.finalize_transaction().unwrap();
+                                        self.write_log.drop_tx();
                                         self.storage.transfer(
                                             &m1t(),
                                             funds,
@@ -181,6 +184,8 @@ where
                                     }
                                 }
                                 Err(_e) => {
+                                    self.gas_meter.finalize_transaction().unwrap();
+                                    self.write_log.drop_tx();
                                     self.storage.transfer(
                                         &m1t(),
                                         funds,
